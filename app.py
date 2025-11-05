@@ -335,7 +335,7 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
     fig.update_layout(
         template="plotly_dark",
         title=dict(
-            text=f"💫 Economic Flow Analysis — {selected_sector}",
+            text=f"Economic Flow Analysis — {selected_sector}",
             font=dict(size=20, color="#f1f5f9", family="Inter")
         ),
         font=dict(size=12, family="Inter"),
@@ -559,7 +559,7 @@ def create_other_items_heatmap(other_df, total_flow, flow_label, base_color):
 # filepath: charts/detailed_product_analysis.py
 import plotly.express as px
 
-def create_bar_chart(df, title, value_column="2024"):
+def create_bar_chart(df, title, value_column="2023"):
     """
     Creates a horizontal bar chart for top commodities with adaptive labels and minimum bar visibility.
     Ensures small values remain visible and labeled. Treats None as zero.
@@ -790,7 +790,7 @@ def main():
             st.session_state.selected_flow_type = None
             st.rerun()
 
-        st.markdown(f"<h3 class='sankey-title'>🔍 {flow_type} Breakdown — {selected_sector}</h3>", unsafe_allow_html=True)
+        # st.markdown(f"<h3 class='sankey-title'>🔍 {flow_type} Breakdown — {selected_sector}</h3>", unsafe_allow_html=True)
         
         if flow_type == "Exports":
             df_flow = exports[exports["CC_DESC_EN"] == selected_sector]
