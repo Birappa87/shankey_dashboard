@@ -534,16 +534,18 @@ def create_other_items_heatmap(other_df, total_flow, flow_label, base_color):
     other_pct = (other_total / total_flow) * 100
 
     fig.update_layout(
-        height=max(300, n_rows * 100),
+        height=max(400, n_rows * 120),
         template="plotly_dark",
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=120, b=40),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         title=dict(
             text=f"📦 Remaining {len(other_df)} {flow_label} Items<br>"
                  f"<sub>Total: {format_value(other_total)} ({other_pct:.1f}% of flow)</sub>",
             font=dict(size=16, color="#f1f5f9", family="Inter"),
-            y=0.98
+            # y=0.96,
+            x=0.5,
+            xanchor='center'
         )
     )
 
@@ -559,18 +561,34 @@ import plotly.express as px
 
 def create_bar_chart(df, title, value_column="2024"):
     """
-    Creates a horizontal bar chart for top commodities with center labels.
-    Labels show values in millions/billions + percentage of total.
+    Creates a horizontal bar chart for top commodities with adaptive labels and minimum bar visibility.
+    Ensures small values remain visible and labeled. Treats None as zero.
     """
+    import numpy as np
+    import plotly.express as px
+
     if df.empty:
         return None
 
-    chart_df = df.nlargest(15, value_column).copy()
+    # Create a copy and handle None values
+    chart_df = df.copy()
+    
+    # Convert None to 0 and ensure numeric type
+    chart_df[value_column] = pd.to_numeric(chart_df[value_column], errors='coerce').fillna(0)
+    
+    # Get top 15 and sort
+    chart_df = chart_df.nlargest(15, value_column).copy()
     chart_df = chart_df.sort_values(value_column, ascending=True)
-
+    
     total_value = chart_df[value_column].sum()
+    
+    # Avoid division by zero
+    if total_value == 0:
+        return None
 
     def format_value(x):
+        if x == 0:
+            return "0 (0.0%)"
         if x >= 1e9:
             val = f"{x / 1e9:.2f}B"
         elif x >= 1e6:
@@ -582,35 +600,58 @@ def create_bar_chart(df, title, value_column="2024"):
 
     chart_df["label_text"] = chart_df[value_column].apply(format_value)
 
+    # Apply minimum visible bar width for near-zero values
+    max_val = chart_df[value_column].max()
+    
+    if max_val == 0:
+        return None
+        
+    min_visible_val = 0.02 * max_val  # 2% of max ensures visibility
+    chart_df["display_value"] = np.where(
+        chart_df[value_column] < min_visible_val, 
+        min_visible_val, 
+        chart_df[value_column]
+    )
+
+    # Create base chart
     fig = px.bar(
         chart_df,
         y="COMM_NAME_EN",
-        x=value_column,
+        x="display_value",
         color=value_column,
         title=title,
         color_continuous_scale=["#1e293b", "#3b82f6", "#60a5fa"],
         labels={"COMM_NAME_EN": "Commodity", value_column: "Value (SR)"},
-        orientation='h',
-        text="label_text"
+        orientation="h",
+        text="label_text",
     )
 
+    # Adaptive label positions
+    threshold = 0.15 * max_val
+    textpositions = np.where(chart_df[value_column] < threshold, "outside", "inside")
+
     fig.update_traces(
-        hovertemplate="<b>%{y}</b><br>Value: SR %{x:,.2f}<extra></extra>",
-        textposition="inside",
-        textfont=dict(color="white", size=12),
-        insidetextanchor="middle"
+        hovertemplate="<b>%{y}</b><br>Value: SR %{customdata[0]:,.2f}<extra></extra>",
+        textposition=textpositions,
+        textfont=dict(color="white", size=11),
+        insidetextanchor="middle",
+        cliponaxis=False,
+        customdata=np.expand_dims(chart_df[value_column], axis=1),
     )
 
     fig.update_layout(
         template="plotly_dark",
-        height=600,
+        height=650,
         title_font=dict(size=18, color="#f1f5f9", family="Inter"),
-        margin=dict(l=20, r=20, t=60, b=40),
+        margin=dict(l=20, r=40, t=60, b=40),
         showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         yaxis=dict(tickfont=dict(size=10)),
-        xaxis=dict(gridcolor="rgba(148, 163, 184, 0.1)")
+        xaxis=dict(
+            gridcolor="rgba(148, 163, 184, 0.1)",
+            range=[0, max_val * 1.25],
+        ),
     )
 
     return fig
