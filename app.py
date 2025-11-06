@@ -746,13 +746,12 @@ def main():
                         .astype(str).str.contains(selected_sector, case=False, na=False)]
 
         try:
-            if sut_df["Total Output"].isnull().all():
-                st.warning("No valid data found for Total Output in the selected sector.")
-                total_output = 0
-            else:
-                total_output = sut_df["Final Demand"].astype(float).sum() * 1000
+            # Calculate components
             total_intermediate = sut_df["Total Intermediate Consumption"].astype(float).sum() * 1000
             final_consumption = sut_df["Final consumption expenditures"].astype(float).sum() * 1000
+            
+            # Calculate total sales as Total Intermediate Consumption + Final Demand
+            total_output = total_intermediate + final_consumption
         except Exception as e:
             st.error(f"Error calculating totals: {e}")
             total_intermediate = final_consumption = total_output = 0
