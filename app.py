@@ -37,12 +37,17 @@ hr {
 .metric-card {
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
     border-radius: 20px;
-    padding: 0.5rem 0.8rem;
+    padding: 1.5rem 1rem;
     border: 1px solid rgba(148, 163, 184, 0.1);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     text-align: center;
     backdrop-filter: blur(10px);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 180px;
 }
 .metric-card:hover {
     transform: translateY(-4px);
@@ -50,25 +55,29 @@ hr {
 }
 .metric-label { 
     color: #94a3b8; 
-    font-size: 1rem; 
+    font-size: 0.875rem; 
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 500;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
 }
 .metric-value { 
     color: #60a5fa; 
-    font-size: 2.15rem; 
+    font-size: 2rem; 
     font-weight: 700;
-    margin: 0.75rem 0;
+    margin: 0.5rem 0;
     background: linear-gradient(135deg, #60a5fa, #a78bfa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    line-height: 1.2;
 }
 .metric-subtext {
     color: #64748b;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     margin-top: 0.5rem;
     font-weight: 500;
+    line-height: 1.2;
 }
 div[data-testid="stButton"] > button[kind="secondary"] {
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)) !important;
