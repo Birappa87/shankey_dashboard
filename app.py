@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
 import plotly.graph_objects as go
 
 VALID_USERNAME = st.secrets["credentials"]["username"]
@@ -153,14 +154,12 @@ def authenticate_user():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if not st.session_state.authenticated:
-        st.markdown("<h2 style='text-align:center; margin-top: 4rem;'>📊 Saudi Statistics Dashboard</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; margin-top: 4rem;'>Saudi Statistics Dashboard</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align:center;color:#94a3b8; margin-bottom: 3rem;'>General Authority for Statistics – Kingdom of Saudi Arabia</p>", unsafe_allow_html=True)
         with st.form("login_form"):
-            st.markdown("<div class='login-card'>", unsafe_allow_html=True)
             username = st.text_input("Username", placeholder="Enter your username")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
             submitted = st.form_submit_button("Login", use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
         if submitted:
             if username == VALID_USERNAME and password == VALID_PASSWORD:
                 st.session_state.authenticated = True
@@ -236,76 +235,110 @@ def format_value(value):
 def display_sector_bubbles(sectors_data):
     """
     Displays interactive sector selection grid with bubble cards.
-    Sorted by total output value in descending order.
+    Sorted by total output value in descending order (left to right, top to bottom).
     """
     st.markdown("<h3 style='margin: 2rem 0 1rem 0;'>🎯 Select a Sector to Explore</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color:#94a3b8; margin-bottom: 2.5rem;'>Click on any sector to view detailed economic flow analysis</p>", unsafe_allow_html=True)
+    
+    # Sort sectors by output value in descending order
     sorted_sectors = sorted(sectors_data.items(), key=lambda x: x[1]['output'], reverse=True)
-    cols = st.columns(3)
-    for idx, (sector, data) in enumerate(sorted_sectors):
-        with cols[idx % 3]:
-            output_val = data['output']
-            display_val = format_value(output_val)
-            icon = get_sector_icon(sector)
-            display_name = sector if len(sector) <= 45 else sector[:42] + "..."
-
-            sectors = [
-                "Manufacture of coke and refined petroleum products",
-                "Manufacture of food products",
-                "Manufacture of chemicals and chemical products",
-                "Manufacture of motor vehicles, trailers and semi-trailers",
-                "Manufacture of machinery and equipment n.e.c.",
-                "Manufacture of electrical equipment",
-                "Manufacture of basic metals",
-                "Manufacture of computer, electronic and optical products",
-                "Manufacture of fabricated metal products, except machinery and equipment",
-                "Manufacture of other transport equipment",
-                "Manufacture of other non-metallic mineral products",
-                "Manufacture of wearing apparel",
-                "Manufacture of furniture",
-                "Manufacture of rubber and plastics products",
-                "Manufacture of basic pharmaceutical products and pharmaceutical preparations",
-                "Other manufacturing",
-                "Manufacture of beverages",
-                "Manufacture of paper and paper products",
-                "Manufacture of textiles",
-                "Printing and reproduction of recorded media",
-                "Manufacture of leather and related products",
-                "Manufacture of woods, wood products and cork, except furniture"
-            ]
-
-            if display_name in sectors:
-                button_label = f"{icon}\n\n**{display_name}**\n\n Final Sales: {display_val}"
+    
+    # Define which sectors to display
+    sectors_to_display = [
+        "Manufacture of coke and refined petroleum products",
+        "Manufacture of food products",
+        "Manufacture of chemicals and chemical products",
+        "Manufacture of motor vehicles, trailers and semi-trailers",
+        "Manufacture of machinery and equipment n.e.c.",
+        "Manufacture of electrical equipment",
+        "Manufacture of basic metals",
+        "Manufacture of computer, electronic and optical products",
+        "Manufacture of fabricated metal products, except machinery and equipment",
+        "Manufacture of other transport equipment",
+        "Manufacture of other non-metallic mineral products",
+        "Manufacture of wearing apparel",
+        "Manufacture of furniture",
+        "Manufacture of rubber and plastics products",
+        "Manufacture of basic pharmaceutical products and pharmaceutical preparations",
+        "Other manufacturing",
+        "Manufacture of beverages",
+        "Manufacture of paper and paper products",
+        "Manufacture of textiles",
+        "Printing and reproduction of recorded media",
+        "Manufacture of leather and related products",
+        "Manufacture of woods, wood products and cork, except furniture"
+    ]
+    
+    # Filter to only include sectors in the display list
+    filtered_sectors = [(sector, data) for sector, data in sorted_sectors if sector in sectors_to_display]
+    
+    # Create grid layout - 3 columns
+    num_cols = 3
+    
+    # Process sectors row by row to maintain left-to-right, top-to-bottom order
+    for row_start in range(0, len(filtered_sectors), num_cols):
+        cols = st.columns(num_cols)
+        row_sectors = filtered_sectors[row_start:row_start + num_cols]
+        
+        for col_idx, (sector, data) in enumerate(row_sectors):
+            with cols[col_idx]:
+                output_val = data['output']
+                display_val = format_value(output_val)
+                icon = get_sector_icon(sector)
+                
+                # Create button with better text wrapping
+                button_label = f"{icon}\n\n**{sector}**\n\n📊 Final Sales: {display_val}"
+                
                 st.markdown("<div class='bubble-container'>", unsafe_allow_html=True)
-                if st.button(button_label, key=f"bubble_{sector}_{idx}", use_container_width=True, type="secondary"):
+                
+                # Use unique key based on sector name
+                if st.button(
+                    button_label, 
+                    key=f"bubble_{sector}", 
+                    use_container_width=True, 
+                    type="secondary"
+                ):
                     st.session_state.selected_sector = sector
                     st.session_state.view = "sankey"
                     st.session_state.selected_flow_type = None
                     st.rerun()
+                
                 st.markdown("</div>", unsafe_allow_html=True)
 
 def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_output, total_intermediate, final_consumption):
     """
-    Simplified multi-level Sankey:
-    - Shows only total-level flows
-    - Each node label includes value + percentage of Total Output
+    Multi-level Sankey Diagram (Total-Level Flows)
+    - Node padding dynamically adjusted to simulate proportional node sizes
+    - Each node label shows value and % of Total Output
     """
     # Compute totals
     total_exports = exports_df["2023"].sum()
     total_imports = imports_df["2023"].sum()
     total_outflow = total_exports + total_intermediate + final_consumption
 
-    # Calculate shares (% of total output)
+    # Percentage function
     pct = lambda val: (val / total_output * 100) if total_output > 0 else 0
 
-    nodes = [
-        f"<b>Total Output</b><br>{format_value(total_output)}<br>(100%)",
+    # Define node data
+    node_values = [total_output, total_exports, final_consumption, total_intermediate, total_imports]
+    node_labels = [
+        f"<b>Sales</b><br>{format_value(total_output)}<br>(100%)",
         f"<b>Exports</b><br>{format_value(total_exports)}<br>({pct(total_exports):.1f}%)",
-        f"<b>Final Demand</b><br>{format_value(final_consumption)}<br>({pct(final_consumption):.1f}%)",
-        f"<b>Intermediate</b><br>{format_value(total_intermediate)}<br>({pct(total_intermediate):.1f}%)",
+        f"<b>Final Sales</b><br>{format_value(final_consumption)}<br>({pct(final_consumption):.1f}%)",
+        f"<b>B2B Sales (Raw Material)</b><br>{format_value(total_intermediate)}<br>({pct(total_intermediate):.1f}%)",
         f"<b>Imports</b><br>{format_value(total_imports)}<br>({pct(total_imports):.1f}%)"
     ]
 
+    # Compute dynamic padding (inverse of value)
+    # Lower pad → visually larger node area
+    min_pad, max_pad = 15, 80
+    if total_output > 0:
+        pad_values = np.interp(node_values, [min(node_values), max(node_values)], [max_pad, min_pad])
+        avg_pad = float(np.mean(pad_values))
+    else:
+        avg_pad = 40
+
+    # Define links
     links = [
         dict(source=0, target=1, value=total_exports, color="rgba(251, 146, 60, 0.6)"),
         dict(source=0, target=2, value=final_consumption, color="rgba(52, 211, 153, 0.6)"),
@@ -313,13 +346,14 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
         dict(source=4, target=0, value=total_imports, color="rgba(96, 165, 250, 0.6)")
     ]
 
+    # Create Sankey diagram
     fig = go.Figure(data=[go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=30,
-            thickness=30,
+            pad=avg_pad,  # Dynamically scaled padding
+            thickness=30,  # Keep constant for better readability
             line=dict(color="rgba(255,255,255,0.2)", width=1),
-            label=nodes,
+            label=node_labels,
             color=["#3b82f6", "#fb923c", "#34d399", "#a78bfa", "#60a5fa"],
             hovertemplate='%{label}<extra></extra>'
         ),
@@ -328,10 +362,11 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
             target=[l["target"] for l in links],
             value=[l["value"] for l in links],
             color=[l["color"] for l in links],
-            hovertemplate="%{source.label} → %{target.label}<br>Value: SR %{value:,.2f} <extra></extra>"
+            hovertemplate="Flow: %{value:,.0f} SR<extra></extra>"
         )
     )])
 
+    # Layout
     fig.update_layout(
         template="plotly_dark",
         title=dict(
@@ -456,8 +491,8 @@ def create_expanded_flow_sankey(selected_sector, df_flow, flow_label):
             font=dict(size=20, color="#f1f5f9", family="Inter")
         ),
         font=dict(size=11, family="Inter"),
-        height=850,
-        margin=dict(l=20, r=20, t=80, b=20),
+        # height=850,
+        # margin=dict(l=20, r=20, t=80, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)"
     )
@@ -714,24 +749,27 @@ def main():
             total_intermediate = final_consumption = total_output = 0
 
         exports_total = exp_df['2023'].astype(float).sum()
-        
+        total_import = imp_df['2023'].astype(float).sum()
+
         if total_output > 0:
             exports_pct = (exports_total / total_output) * 100
             final_demand_pct = (final_consumption / total_output) * 100
             intermediate_pct = (total_intermediate / total_output) * 100
+            import_pct = (total_import / total_output) * 100
             total_output_pct = 100
         else:
-            exports_pct = final_demand_pct = intermediate_pct = total_output_pct = 0
+            exports_pct = final_demand_pct = intermediate_pct = import_pct = total_output_pct = 0
 
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         metrics_data = [
             ("Sales", total_output, total_output_pct),
             ("Exports", exports_total, exports_pct),
+            ("Imports", total_import, import_pct),
             ("Final Sales", final_consumption, final_demand_pct),
             ("B2B Sales (Raw Material)", total_intermediate, intermediate_pct)
         ]
-        
-        for col, (label, val, pct) in zip([c1, c2, c3, c4], metrics_data):
+
+        for col, (label, val, pct) in zip([c1, c2, c3, c4, c5], metrics_data):
             with col:
                 st.markdown(f"""
                     <div class="metric-card">
