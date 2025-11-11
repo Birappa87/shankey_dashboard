@@ -186,8 +186,6 @@ def load_data():
 def display_header():
     """Displays the application header with logo and organization name."""
     col1, col2 = st.columns([1, 5])
-    # with col1:
-    #     st.image("logo.png", width=100)
     with col2:
         st.markdown("""
             <div style='padding-top:15px;'>
@@ -284,19 +282,19 @@ def display_sector_bubbles(sectors_data):
                 
                 st.markdown("</div>", unsafe_allow_html=True)
 
-def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_output, total_intermediate, final_consumption):
+def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_output, total_intermediate, final_consumption, gross_capital_formation, total_exports):
     """Creates multi-level Sankey diagram showing total-level economic flows with dynamic node sizing."""
-    total_exports = exports_df["2023"].sum()
     total_imports = imports_df["2023"].sum()
 
     pct = lambda val: (val / total_output * 100) if total_output > 0 else 0
 
-    node_values = [total_output, total_exports, final_consumption, total_intermediate, total_imports]
+    node_values = [total_output, total_exports, final_consumption, total_intermediate, gross_capital_formation, total_imports]
     node_labels = [
         f"<b>Sales</b><br>{format_value(total_output)}<br>(100%)",
         f"<b>Exports</b><br>{format_value(total_exports)}<br>({pct(total_exports):.1f}%)",
         f"<b>Consumer Sales</b><br>{format_value(final_consumption)}<br>({pct(final_consumption):.1f}%)",
         f"<b>B2B Sales (Raw Material)</b><br>{format_value(total_intermediate)}<br>({pct(total_intermediate):.1f}%)",
+        f"<b>CAPEX/OPEX</b><br>{format_value(gross_capital_formation)}<br>({pct(gross_capital_formation):.1f}%)",
         f"<b>Imports</b><br>{format_value(total_imports)}<br>({pct(total_imports):.1f}%)"
     ]
 
@@ -311,7 +309,8 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
         dict(source=0, target=1, value=total_exports, color="rgba(251, 146, 60, 0.6)"),
         dict(source=0, target=2, value=final_consumption, color="rgba(52, 211, 153, 0.6)"),
         dict(source=0, target=3, value=total_intermediate, color="rgba(167, 139, 250, 0.6)"),
-        dict(source=4, target=0, value=total_imports, color="rgba(96, 165, 250, 0.6)")
+        dict(source=0, target=4, value=gross_capital_formation, color="rgba(168, 85, 247, 0.6)"),
+        dict(source=5, target=0, value=total_imports, color="rgba(96, 165, 250, 0.6)")
     ]
 
     fig = go.Figure(data=[go.Sankey(
@@ -321,7 +320,7 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
             thickness=30,
             line=dict(color="rgba(255,255,255,0.2)", width=1),
             label=node_labels,
-            color=["#3b82f6", "#fb923c", "#34d399", "#a78bfa", "#60a5fa"],
+            color=["#3b82f6", "#fb923c", "#34d399", "#a78bfa", "#a855f7", "#60a5fa"],
             hovertemplate='%{label}<extra></extra>'
         ),
         link=dict(
@@ -620,33 +619,36 @@ def main():
         try:
             total_intermediate = sut_df["Total Intermediate Consumption"].astype(float).sum() * 1000
             final_consumption = sut_df["Final consumption expenditures"].astype(float).sum() * 1000
-            total_output = total_intermediate + final_consumption
+            gross_capital_formation = sut_df['Gross capital formation'].astype(float).sum() * 1000
+            total_exports = sut_df['Total Export'].astype(float).sum() * 1000
+            total_output = total_intermediate + final_consumption + gross_capital_formation + total_exports
         except Exception as e:
             st.error(f"Error calculating totals: {e}")
-            total_intermediate = final_consumption = total_output = 0
+            total_intermediate = final_consumption = gross_capital_formation = total_exports = total_output = 0
 
-        exports_total = exp_df['2023'].astype(float).sum()
         total_import = imp_df['2023'].astype(float).sum()
 
         if total_output > 0:
-            exports_pct = (exports_total / total_output) * 100
+            exports_pct = (total_exports / total_output) * 100
             final_demand_pct = (final_consumption / total_output) * 100
             intermediate_pct = (total_intermediate / total_output) * 100
             import_pct = (total_import / total_output) * 100
+            capex_pct = (gross_capital_formation / total_output) * 100
             total_output_pct = 100
         else:
-            exports_pct = final_demand_pct = intermediate_pct = import_pct = total_output_pct = 0
+            exports_pct = final_demand_pct = intermediate_pct = import_pct = capex_pct = total_output_pct = 0
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
         metrics_data = [
             ("Sales", total_output, total_output_pct),
-            ("Exports", exports_total, exports_pct),
+            ("Exports", total_exports, exports_pct),
             ("Imports", total_import, import_pct),
             ("Consumer Sales", final_consumption, final_demand_pct),
-            ("B2B Sales (Raw Material)", total_intermediate, intermediate_pct)
+            ("B2B Sales (Raw Material)", total_intermediate, intermediate_pct),
+            ("CAPEX/OPEX", gross_capital_formation, capex_pct)
         ]
 
-        for col, (label, val, pct) in zip([c1, c2, c3, c4, c5], metrics_data):
+        for col, (label, val, pct) in zip([c1, c2, c3, c4, c5, c6], metrics_data):
             with col:
                 st.markdown(f"""
                     <div class="metric-card">
@@ -672,7 +674,7 @@ def main():
                 st.rerun()
 
         sankey_fig = create_multilevel_sankey(selected_sector, exp_df, imp_df,
-                                               total_output, total_intermediate, final_consumption)
+                                               total_output, total_intermediate, final_consumption, gross_capital_formation, total_exports)
         st.plotly_chart(sankey_fig, config={"displayModeBar": False}, use_container_width=True)
 
         st.markdown("<h4 style='margin: 3rem 0 1.5rem 0;'>📦 Detailed Product Analysis</h4>", unsafe_allow_html=True)
