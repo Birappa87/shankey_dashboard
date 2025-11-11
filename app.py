@@ -270,7 +270,7 @@ def display_sector_bubbles(sectors_data):
                 output_val = data['output']
                 display_val = format_value(output_val)
                 icon = get_sector_icon(sector)
-                button_label = f"{icon}\n\n**{sector}**\n\n Consumer Sales: {display_val}"
+                button_label = f"{icon}\n\n**{sector}**\n\n Sales: {display_val}"
                 
                 st.markdown("<div class='bubble-container'>", unsafe_allow_html=True)
                 
@@ -594,7 +594,11 @@ def main():
         sut_df = sut_io[sut_io["Input-Output Tables (IOTs) 2018 (Thousands of Saudi riyals) - Economic Activities (ISIC Rev. 4)"]
                         .astype(str).str.contains(sector, case=False, na=False)]
         try:
-            total_output = sut_df["Final consumption expenditures"].astype(float).sum() * 1000
+            total_intermediate = sut_df["Total Intermediate Consumption"].astype(float).sum() * 1000
+            final_consumption = sut_df["Final consumption expenditures"].astype(float).sum() * 1000
+            gross_capital_formation = sut_df['Gross capital formation'].astype(float).sum() * 1000
+            total_exports = sut_df['Total Export'].astype(float).sum() * 1000
+            total_output = total_intermediate + final_consumption + gross_capital_formation + total_exports
         except Exception:
             total_output = 0
         sectors_data[sector] = {"output": total_output}
