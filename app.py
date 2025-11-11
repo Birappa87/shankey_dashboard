@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 VALID_USERNAME = st.secrets["credentials"]["username"]
 VALID_PASSWORD = st.secrets["credentials"]["password"]
 
-st.set_page_config(page_title="Saudi Statistics Dashboard", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Industrial economic data dashboard", page_icon="", layout="wide")
 
 st.markdown("""
 <style>
@@ -156,15 +156,12 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 def authenticate_user():
-    """
-    Handles user authentication with username and password validation.
-    Stores authentication state in session_state.
-    """
+    """Handles user authentication with username and password validation."""
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if not st.session_state.authenticated:
         st.markdown("<h2 style='text-align:center; margin-top: 4rem;'>Saudi Statistics Dashboard</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center;color:#94a3b8; margin-bottom: 3rem;'>General Authority for Statistics – Kingdom of Saudi Arabia</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center;color:#94a3b8; margin-bottom: 3rem;'>Industrial sector economic data</p>", unsafe_allow_html=True)
         with st.form("login_form"):
             username = st.text_input("Username", placeholder="Enter your username")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
@@ -180,19 +177,14 @@ def authenticate_user():
 
 @st.cache_data(show_spinner="Loading data...")
 def load_data():
-    """
-    Loads and caches CSV data for imports, exports, and supply-use tables.
-    Returns three DataFrames.
-    """
+    """Loads and caches CSV data for imports, exports, and supply-use tables."""
     imports = pd.read_csv("cleaned_data/cleaned_imports.csv")
     exports = pd.read_csv("cleaned_data/cleaned_exports.csv")
     sut_io = pd.read_csv("cleaned_data/sut_io_cleaned_data.csv")
     return imports, exports, sut_io
 
 def display_header():
-    """
-    Displays the application header with logo and organization name.
-    """
+    """Displays the application header with logo and organization name."""
     col1, col2 = st.columns([1, 5])
     with col1:
         st.image("logo.png", width=100)
@@ -201,17 +193,14 @@ def display_header():
             <div style='padding-top:15px;'>
                 <h2 style='margin:0; background: linear-gradient(135deg, #60a5fa, #a78bfa); 
                            -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
-                    General Authority for Statistics
+                    Industrial sector economic data
                 </h2>
-                <p style='margin:0; color:#94a3b8; font-size: 1.1rem;'>Kingdom of Saudi Arabia</p>
             </div>
         """, unsafe_allow_html=True)
     st.markdown("<hr>", unsafe_allow_html=True)
 
 def get_sector_icon(sector):
-    """
-    Returns appropriate emoji icon based on sector keywords.
-    """
+    """Returns appropriate emoji icon based on sector keywords."""
     sector_lower = sector.lower()
     if "food" in sector_lower or "agriculture" in sector_lower:
         return "🌾"
@@ -232,9 +221,7 @@ def get_sector_icon(sector):
     return "🏭"
 
 def format_value(value):
-    """
-    Formats numerical values into billions and millions for better readability.
-    """
+    """Formats numerical values into billions and millions for better readability."""
     if value >= 1_000_000_000:
         return f"SR {value/1_000_000_000:.2f}B"
     elif value >= 1_000_000:
@@ -242,17 +229,12 @@ def format_value(value):
     return f"SR {value/1_000_000:.2f}M"
 
 def display_sector_bubbles(sectors_data):
-    """
-    Displays interactive sector selection grid with bubble cards.
-    Sorted by total output value in descending order (left to right, top to bottom).
-    """
-    st.markdown("<h3 style='margin: 2rem 0 1rem 0;'>🎯 Select a Sector to Explore</h3>", unsafe_allow_html=True)
+    """Displays interactive sector selection grid with bubble cards sorted by output value."""
+    st.markdown("<h3 style='margin: 2rem 0 1rem 0;'>Select a Sector to Explore</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color:#94a3b8; margin-bottom: 2.5rem;'>Click on any sector to view detailed economic flow analysis</p>", unsafe_allow_html=True)
     
-    # Sort sectors by output value in descending order
     sorted_sectors = sorted(sectors_data.items(), key=lambda x: x[1]['output'], reverse=True)
     
-    # Define which sectors to display
     sectors_to_display = [
         "Manufacture of coke and refined petroleum products",
         "Manufacture of food products",
@@ -278,13 +260,9 @@ def display_sector_bubbles(sectors_data):
         "Manufacture of woods, wood products and cork, except furniture"
     ]
     
-    # Filter to only include sectors in the display list
     filtered_sectors = [(sector, data) for sector, data in sorted_sectors if sector in sectors_to_display]
-    
-    # Create grid layout - 3 columns
     num_cols = 3
     
-    # Process sectors row by row to maintain left-to-right, top-to-bottom order
     for row_start in range(0, len(filtered_sectors), num_cols):
         cols = st.columns(num_cols)
         row_sectors = filtered_sectors[row_start:row_start + num_cols]
@@ -294,19 +272,11 @@ def display_sector_bubbles(sectors_data):
                 output_val = data['output']
                 display_val = format_value(output_val)
                 icon = get_sector_icon(sector)
-                
-                # Create button with better text wrapping
-                button_label = f"{icon}\n\n**{sector}**\n\n📊 Final Sales: {display_val}"
+                button_label = f"{icon}\n\n**{sector}**\n\n Consumer Sales: {display_val}"
                 
                 st.markdown("<div class='bubble-container'>", unsafe_allow_html=True)
                 
-                # Use unique key based on sector name
-                if st.button(
-                    button_label, 
-                    key=f"bubble_{sector}", 
-                    use_container_width=True, 
-                    type="secondary"
-                ):
+                if st.button(button_label, key=f"bubble_{sector}", use_container_width=True, type="secondary"):
                     st.session_state.selected_sector = sector
                     st.session_state.view = "sankey"
                     st.session_state.selected_flow_type = None
@@ -315,31 +285,21 @@ def display_sector_bubbles(sectors_data):
                 st.markdown("</div>", unsafe_allow_html=True)
 
 def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_output, total_intermediate, final_consumption):
-    """
-    Multi-level Sankey Diagram (Total-Level Flows)
-    - Node padding dynamically adjusted to simulate proportional node sizes
-    - Each node label shows value and % of Total Output
-    """
-    # Compute totals
+    """Creates multi-level Sankey diagram showing total-level economic flows with dynamic node sizing."""
     total_exports = exports_df["2023"].sum()
     total_imports = imports_df["2023"].sum()
-    total_outflow = total_exports + total_intermediate + final_consumption
 
-    # Percentage function
     pct = lambda val: (val / total_output * 100) if total_output > 0 else 0
 
-    # Define node data
     node_values = [total_output, total_exports, final_consumption, total_intermediate, total_imports]
     node_labels = [
         f"<b>Sales</b><br>{format_value(total_output)}<br>(100%)",
         f"<b>Exports</b><br>{format_value(total_exports)}<br>({pct(total_exports):.1f}%)",
-        f"<b>Final Sales</b><br>{format_value(final_consumption)}<br>({pct(final_consumption):.1f}%)",
+        f"<b>Consumer Sales</b><br>{format_value(final_consumption)}<br>({pct(final_consumption):.1f}%)",
         f"<b>B2B Sales (Raw Material)</b><br>{format_value(total_intermediate)}<br>({pct(total_intermediate):.1f}%)",
         f"<b>Imports</b><br>{format_value(total_imports)}<br>({pct(total_imports):.1f}%)"
     ]
 
-    # Compute dynamic padding (inverse of value)
-    # Lower pad → visually larger node area
     min_pad, max_pad = 15, 80
     if total_output > 0:
         pad_values = np.interp(node_values, [min(node_values), max(node_values)], [max_pad, min_pad])
@@ -347,7 +307,6 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
     else:
         avg_pad = 40
 
-    # Define links
     links = [
         dict(source=0, target=1, value=total_exports, color="rgba(251, 146, 60, 0.6)"),
         dict(source=0, target=2, value=final_consumption, color="rgba(52, 211, 153, 0.6)"),
@@ -355,12 +314,11 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
         dict(source=4, target=0, value=total_imports, color="rgba(96, 165, 250, 0.6)")
     ]
 
-    # Create Sankey diagram
     fig = go.Figure(data=[go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=avg_pad,  # Dynamically scaled padding
-            thickness=30,  # Keep constant for better readability
+            pad=avg_pad,
+            thickness=30,
             line=dict(color="rgba(255,255,255,0.2)", width=1),
             label=node_labels,
             color=["#3b82f6", "#fb923c", "#34d399", "#a78bfa", "#60a5fa"],
@@ -375,7 +333,6 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
         )
     )])
 
-    # Layout
     fig.update_layout(
         template="plotly_dark",
         title=dict(
@@ -390,17 +347,11 @@ def create_multilevel_sankey(selected_sector, exports_df, imports_df, total_outp
     )
     return fig
 
-
-
 def create_expanded_flow_sankey(selected_sector, df_flow, flow_label):
-    """
-    Creates an expanded Sankey for Exports or Imports.
-    Shows top 10 items, aggregates the rest into 'Other Exports' or 'Other Imports'.
-    """
+    """Creates expanded Sankey showing top 10 items with aggregated 'Other' category."""
     if df_flow.empty:
         return go.Figure()
 
-    # Ensure clean numeric data
     df_flow = df_flow.copy()
     df_flow["2023"] = pd.to_numeric(df_flow["2023"], errors="coerce").fillna(0)
 
@@ -408,22 +359,18 @@ def create_expanded_flow_sankey(selected_sector, df_flow, flow_label):
     if total_flow <= 0:
         return go.Figure()
 
-    # Sort and slice
     df_flow = df_flow.sort_values("2023", ascending=False)
     top_df = df_flow.head(10)
     other_df = df_flow.iloc[10:]
     other_val = other_df["2023"].sum()
 
-    # Prepare nodes
     main_label = f"<b>{selected_sector}</b><br><b>{flow_label}</b><br>{format_value(total_flow)}"
     nodes = [main_label]
     links = []
 
-    # Color scheme
     base_color = "rgba(251, 146, 60, 0.7)" if flow_label == "Exports" else "rgba(96, 165, 250, 0.7)"
     light_color = "rgba(251, 146, 60, 0.4)" if flow_label == "Exports" else "rgba(96, 165, 250, 0.4)"
 
-    # Add top 10 items
     for _, row in top_df.iterrows():
         product = str(row["COMM_NAME_EN"])
         if len(product) > 40:
@@ -433,47 +380,12 @@ def create_expanded_flow_sankey(selected_sector, df_flow, flow_label):
         nodes.append(f"{product}<br>{format_value(value)}<br>({percentage:.1f}%)")
         links.append(dict(source=0, target=len(nodes)-1, value=value, color=base_color))
 
-    # Add aggregated 'Other' node if applicable
     if other_val >= 1:
         percentage = (other_val / total_flow) * 100
         other_label = f"<b>Other {flow_label}</b><br>{format_value(other_val)}<br>({percentage:.1f}%)<br>({len(other_df)} items)"
         nodes.append(other_label)
         links.append(dict(source=0, target=len(nodes)-1, value=other_val, color=light_color))
-        
-        # Create heatmap for other items
-        st.markdown(f"<h4 style='margin: 2rem 0 1rem 0;'>📊 Other {flow_label} Breakdown</h4>", unsafe_allow_html=True)
-        
-        # Prepare data for heatmap
-        n_cols = 4  # Number of columns in the grid
-        n_rows = (len(other_df) + n_cols - 1) // n_cols  # Calculate required rows
-        
-        # Create a matrix for the heatmap
-        matrix = []
-        values = []
-        labels = []
-        
-        for i in range(n_rows):
-            row_values = []
-            row_labels = []
-            for j in range(n_cols):
-                idx = i * n_cols + j
-                if idx < len(other_df):
-                    item = other_df.iloc[idx]
-                    value = item["2023"]
-                    pct = (value / total_flow) * 100
-                    row_values.append(pct)
-                    product_name = item["COMM_NAME_EN"]
-                    if len(product_name) > 30:
-                        product_name = product_name[:27] + "..."
-                    row_labels.append(f"{product_name}<br>{format_value(value)}<br>({pct:.1f}%)")
-                else:
-                    row_values.append(0)
-                    row_labels.append("")
-            matrix.append(row_values)
-            values.extend(row_values)
-            labels.extend(row_labels)
 
-    # Sankey diagram
     fig = go.Figure(data=[go.Sankey(
         arrangement="snap",
         node=dict(
@@ -500,24 +412,15 @@ def create_expanded_flow_sankey(selected_sector, df_flow, flow_label):
             font=dict(size=20, color="#f1f5f9", family="Inter")
         ),
         font=dict(size=11, family="Inter"),
-        # height=850,
-        # margin=dict(l=20, r=20, t=80, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)"
     )
     return fig
 
-
-
 def create_other_items_heatmap(other_df, total_flow, flow_label, base_color):
-    """
-    Creates a box heatmap visualization for 'other' items in the flow.
-    Sorted from largest to smallest (top-to-bottom).
-    """
-    # Sort the dataframe by value (largest → smallest)
+    """Creates box heatmap visualization for remaining items sorted from largest to smallest."""
     other_df = other_df.sort_values("2023", ascending=False).reset_index(drop=True)
 
-    # Grid layout
     n_cols = 4
     n_rows = (len(other_df) + n_cols - 1) // n_cols
 
@@ -526,7 +429,6 @@ def create_other_items_heatmap(other_df, total_flow, flow_label, base_color):
 
     max_value = other_df["2023"].max()
 
-    # Fill rows top-to-bottom (so first row has largest values)
     for i in range(n_rows):
         row_values, row_labels = [], []
         for j in range(n_cols):
@@ -547,11 +449,9 @@ def create_other_items_heatmap(other_df, total_flow, flow_label, base_color):
         matrix.append(row_values)
         labels_matrix.append(row_labels)
 
-    # ✅ Reverse order to display largest values at the TOP
     matrix = matrix[::-1]
     labels_matrix = labels_matrix[::-1]
 
-    # Define color scheme based on flow type
     if flow_label == "Exports":
         colorscale = [
             [0.0, "#1e293b"], [0.1, "#78350f"], [0.3, "#d97706"],
@@ -587,50 +487,31 @@ def create_other_items_heatmap(other_df, total_flow, flow_label, base_color):
             text=f"📦 Remaining {len(other_df)} {flow_label} Items<br>"
                  f"<sub>Total: {format_value(other_total)} ({other_pct:.1f}% of flow)</sub>",
             font=dict(size=16, color="#f1f5f9", family="Inter"),
-            # y=0.96,
             x=0.5,
             xanchor='center'
         )
     )
 
-    # Hide axes for clean look
     fig.update_xaxes(showticklabels=False, showgrid=False)
     fig.update_yaxes(showticklabels=False, showgrid=False)
 
     return fig
 
-
-# filepath: charts/detailed_product_analysis.py
-import plotly.express as px
-
 def create_bar_chart(df, title, value_column="2023"):
-    """
-    Creates a horizontal bar chart for top commodities with adaptive labels and minimum bar visibility.
-    Ensures small values remain visible and labeled. Treats None as zero.
-    """
-    import numpy as np
-    import plotly.express as px
-
+    """Creates horizontal bar chart for top commodities with adaptive labels and minimum visibility."""
     if df.empty:
         return None
 
-    # Create a copy and handle None values
     chart_df = df.copy()
-    
-    # Convert None to 0 and ensure numeric type
     chart_df[value_column] = pd.to_numeric(chart_df[value_column], errors='coerce').fillna(0)
-    
-    # Get top 15 and sort
     chart_df = chart_df.nlargest(15, value_column).copy()
     chart_df = chart_df.sort_values(value_column, ascending=True)
     
     total_value = chart_df[value_column].sum()
-    
-    # Avoid division by zero
     if total_value == 0:
         return None
 
-    def format_value(x):
+    def format_value_label(x):
         if x == 0:
             return "0 (0.0%)"
         if x >= 1e9:
@@ -642,22 +523,19 @@ def create_bar_chart(df, title, value_column="2023"):
         pct = f"{(x / total_value) * 100:.1f}%"
         return f"{val} ({pct})"
 
-    chart_df["label_text"] = chart_df[value_column].apply(format_value)
+    chart_df["label_text"] = chart_df[value_column].apply(format_value_label)
 
-    # Apply minimum visible bar width for near-zero values
     max_val = chart_df[value_column].max()
-    
     if max_val == 0:
         return None
         
-    min_visible_val = 0.02 * max_val  # 2% of max ensures visibility
+    min_visible_val = 0.02 * max_val
     chart_df["display_value"] = np.where(
         chart_df[value_column] < min_visible_val, 
         min_visible_val, 
         chart_df[value_column]
     )
 
-    # Create base chart
     fig = px.bar(
         chart_df,
         y="COMM_NAME_EN",
@@ -670,7 +548,6 @@ def create_bar_chart(df, title, value_column="2023"):
         text="label_text",
     )
 
-    # Adaptive label positions
     threshold = 0.15 * max_val
     textpositions = np.where(chart_df[value_column] < threshold, "outside", "inside")
 
@@ -700,13 +577,8 @@ def create_bar_chart(df, title, value_column="2023"):
 
     return fig
 
-
 def main():
-    """
-    Main application entry point.
-    Handles authentication, data loading, and view navigation.
-    """
-    authenticate_user()
+    """Main application entry point handling authentication, data loading, and view navigation."""
     imports, exports, sut_io = load_data()
     display_header()
 
@@ -723,7 +595,7 @@ def main():
         sut_df = sut_io[sut_io["Input-Output Tables (IOTs) 2018 (Thousands of Saudi riyals) - Economic Activities (ISIC Rev. 4)"]
                         .astype(str).str.contains(sector, case=False, na=False)]
         try:
-            total_output = sut_df["Final Demand"].astype(float).sum() * 1000
+            total_output = sut_df["Final consumption expenditures"].astype(float).sum() * 1000
         except Exception:
             total_output = 0
         sectors_data[sector] = {"output": total_output}
@@ -746,11 +618,8 @@ def main():
                         .astype(str).str.contains(selected_sector, case=False, na=False)]
 
         try:
-            # Calculate components
             total_intermediate = sut_df["Total Intermediate Consumption"].astype(float).sum() * 1000
             final_consumption = sut_df["Final consumption expenditures"].astype(float).sum() * 1000
-            
-            # Calculate total sales as Total Intermediate Consumption + Final Demand
             total_output = total_intermediate + final_consumption
         except Exception as e:
             st.error(f"Error calculating totals: {e}")
@@ -773,7 +642,7 @@ def main():
             ("Sales", total_output, total_output_pct),
             ("Exports", exports_total, exports_pct),
             ("Imports", total_import, import_pct),
-            ("Final Sales", final_consumption, final_demand_pct),
+            ("Consumer Sales", final_consumption, final_demand_pct),
             ("B2B Sales (Raw Material)", total_intermediate, intermediate_pct)
         ]
 
@@ -835,8 +704,6 @@ def main():
             st.session_state.view = "sankey"
             st.session_state.selected_flow_type = None
             st.rerun()
-
-        # st.markdown(f"<h3 class='sankey-title'>🔍 {flow_type} Breakdown — {selected_sector}</h3>", unsafe_allow_html=True)
         
         if flow_type == "Exports":
             df_flow = exports[exports["CC_DESC_EN"] == selected_sector]
@@ -846,22 +713,18 @@ def main():
         if df_flow.empty:
             st.info(f"No {flow_type.lower()} data available for this sector.")
         else:
-            # Display Sankey diagram
             expanded_fig = create_expanded_flow_sankey(selected_sector, df_flow, flow_type)
             st.plotly_chart(expanded_fig, config={"displayModeBar": False}, use_container_width=True)
 
-            # Calculate other items
             df_sorted = df_flow.sort_values("2023", ascending=False)
-            other_df = df_sorted.iloc[10:]  # Items beyond top 10
+            other_df = df_sorted.iloc[10:]
             total_flow = df_flow["2023"].sum()
 
-            # Display heatmap for other items if they exist
             if not other_df.empty:
                 base_color = "rgba(251, 146, 60, 0.7)" if flow_type == "Exports" else "rgba(96, 165, 250, 0.7)"
                 heatmap_fig = create_other_items_heatmap(other_df, total_flow, flow_type, base_color)
                 st.plotly_chart(heatmap_fig, config={"displayModeBar": False}, use_container_width=True)
             
-            # Display data table
             st.markdown("<h4 style='margin: 2rem 0 1rem 0;'>📋 Data Table</h4>", unsafe_allow_html=True)
             st.dataframe(df_flow, use_container_width=True, height=500)
 
